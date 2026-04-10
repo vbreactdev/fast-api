@@ -1,0 +1,25 @@
+@startuml
+title FastAPI Microservices High-Level Data Flow
+
+actor Client
+
+node "Docker Compose Network" {
+  component "service_auth\nFastAPI" as Auth
+  component "service_data\nFastAPI" as Data
+}
+
+database "Future Identity Store" as Identity
+database "Future Persistent Store" as Storage
+
+Client --> Auth : POST /api/v1/auth/token
+Auth --> Client : JWT access token
+
+Client --> Data : Bearer token\nCRUD requests\n
+Data --> Auth : GET /api/v1/auth/introspect\nAuthorization + X-Internal-Api-Key
+Auth --> Data : Token claims
+Data --> Client : Protected API response
+
+Auth --> Identity : Replace bootstrap credentials
+Data --> Storage : Replace in-memory repository
+
+@enduml

@@ -1,0 +1,70 @@
+name: fastapi-microservices
+
+services:
+  service_auth:
+    build:
+      context: ./service_auth
+      dockerfile: Dockerfile
+    environment:
+      APP_NAME: service_auth
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-production}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      AUTH_BOOTSTRAP_USERNAME: ${AUTH_BOOTSTRAP_USERNAME:-admin}
+      AUTH_BOOTSTRAP_PASSWORD: ${AUTH_BOOTSTRAP_PASSWORD:-changeit}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-change-this-secret-in-production}
+      AUTH_JWT_ALGORITHM: ${AUTH_JWT_ALGORITHM:-HS256}
+      AUTH_ACCESS_TOKEN_TTL_MINUTES: ${AUTH_ACCESS_TOKEN_TTL_MINUTES:-60}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
+    ports:
+      - "${AUTH_PORT:-8001}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health/ready", timeout=2).read()
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - backend
+
+  service_data:
+    build:
+      context: ./service_data
+      dockerfile: Dockerfile
+    depends_on:
+      service_auth:
+        condition: service_healthy
+    environment:
+      APP_NAME: service_data
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-production}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://service_auth:8000}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-internal-dev-key}
+    ports:
+      - "${DATA_PORT:-8002}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health/ready", timeout=2).read()
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
